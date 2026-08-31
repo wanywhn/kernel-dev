@@ -144,6 +144,44 @@
             # kernel will take care of itself.
             NIX_HARDENING_ENABLE = "";
           };
+
+        # A cross-compilation shell. `crossPkgs` is a cross-compiled
+        # package set (e.g. `pkgs.pkgsCross.aarch64-multiplatform`)
+        # that provides the target toolchain (gcc + bintools) with the
+        # correct `targetPrefix`. All build-side tools (bc, bison,
+        # flex, pahole, make, ...) stay native, and a native gcc is
+        # kept around as HOSTCC for the host-side helpers the kernel
+        # builds out of scripts/.
+        mkCrossShell =
+          { crossPkgs, arch, gccVersion ? null }:
+          let
+            crossCc =
+              if gccVersion == null then
+                crossPkgs.stdenv.cc
+              else
+                crossPkgs."gcc${gccVersion}".cc or crossPkgs.stdenv.cc;
+          in
+          pkgs.mkShell {
+            packages =
+              linuxCommonDependencies
+              ++ [
+                # Native compiler for host-side tools (HOSTCC).
+                pkgs.gcc
+                # Target cross toolchain: <prefix>-gcc, <prefix>-ld,
+                # <prefix>-objcopy, ...
+                crossCc
+                crossCc.bintools
+              ];
+
+            # Pre-set these so `make defconfig` just works. Users can
+            # still override them on the command line.
+            ARCH = arch;
+            CROSS_COMPILE = crossCc.targetPrefix;
+
+            # Disable all automatically applied hardening. The Linux
+            # kernel will take care of itself.
+            NIX_HARDENING_ENABLE = "";
+          };
       in
       {
         packages = {
@@ -171,6 +209,23 @@
             rustcVersion = "1_82_0";
           };
           linux_6_12_gcc = mkGccShell { gccVersion = "14"; };
+
+          # Cross-compilation shells. Build on the host (native) but
+          # produce target-arch kernel images. ARCH/CROSS_COMPILE are
+          # pre-set, so `make defconfig && make -j$(nproc) Image` is
+          # enough. arm64 target image is `Image` (not `bzImage`).
+          linux_6_6_cross_aarch64 = mkCrossShell {
+            crossPkgs = pkgs.pkgsCross.aarch64-multiplatform;
+            arch = "arm64";
+          };
+          linux_6_11_cross_aarch64 = mkCrossShell {
+            crossPkgs = pkgs.pkgsCross.aarch64-multiplatform;
+            arch = "arm64";
+          };
+          linux_6_12_cross_aarch64 = mkCrossShell {
+            crossPkgs = pkgs.pkgsCross.aarch64-multiplatform;
+            arch = "arm64";
+          };
         };
 
         formatter = pkgs.nixfmt-rfc-style;

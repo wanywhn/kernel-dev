@@ -11,10 +11,11 @@ if [ -z "$FLAKE_DIR" ]; then
 fi
 
 gcc_flag=false
+cross_arch=""
 kernel_version=""
 
 # Parse command-line options with optional positional parameter handling
-TEMP=$(getopt -o 'h:' --longoptions 'gcc,help' -n 'script_name' -- "$@")
+TEMP=$(getopt -o 'h:' --longoptions 'gcc,arch:,help' -n 'script_name' -- "$@")
 
 eval set -- "$TEMP"
 
@@ -25,8 +26,18 @@ while true; do
       gcc_flag=true
       shift
       ;;
+    --arch)
+      cross_arch="$2"
+      shift 2
+      ;;
     -h | --help)
-      echo "Usage: $0 [--gcc] [KERNEL_VERSION]"
+      echo "Usage: $0 [--gcc] [--arch ARCH] [KERNEL_VERSION]"
+      echo
+      echo "  --gcc        Use a gcc-based environment (default is clang/LLVM)."
+      echo "  --arch ARCH  Use a cross-compilation environment for ARCH (e.g. aarch64)."
+      echo "               Combined with the kernel version this selects a"
+      echo "               linux_<ver>_cross_<arch> devShell, with ARCH and"
+      echo "               CROSS_COMPILE pre-set."
       exit 0
       ;;
     --)
@@ -39,7 +50,7 @@ while true; do
       ;;
     *)
       echo "Error: Invalid option"
-      echo "Usage: $0 [--gcc] [KERNEL_VERSION]"
+      echo "Usage: $0 [--gcc] [--arch ARCH] [KERNEL_VERSION]"
       exit 1
       ;;
   esac
@@ -83,6 +94,10 @@ ATTRIBUTE="linux_$(echo "$kernel_version" | tr -d 'v' | tr '.' '_')"
 
 if $gcc_flag; then
     ATTRIBUTE=${ATTRIBUTE}_gcc
+fi
+
+if [[ -n "$cross_arch" ]]; then
+    ATTRIBUTE=${ATTRIBUTE}_cross_${cross_arch}
 fi
 
 echo -n "Entering environment "

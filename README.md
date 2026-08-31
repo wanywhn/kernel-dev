@@ -56,6 +56,43 @@ $ nix develop github:blitz/kernel-dev#linux_<major_version>_<minor_version>_gcc
 If you don't find the exact version that you need, one that is close
 _might_ work as well.
 
+## Cross-Compilation
+
+In addition to native environments, this flake provides
+cross-compilation shells. They build on your host (native) machine but
+produce kernel images for a different architecture. Right now
+`aarch64` (arm64) is supported, via nixpkgs'
+`pkgsCross.aarch64-multiplatform` toolchain:
+
+```shell
+linux$ nix develop github:blitz/kernel-dev#linux_6_12_cross_aarch64
+```
+
+Inside the shell, `ARCH` and `CROSS_COMPILE` are already pre-set, so
+the usual commands just work:
+
+```shell
+make defconfig
+make -j$(nproc) Image      # arm64 target image is `Image`, not `bzImage`
+```
+
+`HOSTCC` is also taken care of: a native `gcc` is provided for the
+host-side helpers the kernel builds out of `scripts/`.
+
+If you use the `enter-kernel-dev` helper, add `--arch`:
+
+```shell
+$ enter-kernel-dev --arch aarch64 v6.12
+```
+
+### Notes
+
+- Only the pure-C cross toolchain is provided in these shells; Rust
+  for the kernel is not wired up for cross targets yet. Use the native
+  clang shells (`linux_<ver>`) for Rust kernel work.
+- Other architectures can be added by pointing `mkCrossShell` at a
+  different `pkgs.pkgsCross.*` set in `flake.nix`.
+
 ## Contributing
 
 Contributions are welcome! Whether it's adding support for new kernel
